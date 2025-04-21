@@ -6,6 +6,7 @@ import sys
 import os
 import threading
 import requests
+
 # 添加父目录到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
@@ -22,6 +23,7 @@ class GdpApp:
         self.gdp_client = GdpClient()
         self.countries_data = []  # 存储国家数据
         self.country_names = []   # 存储国家名称
+        self.all_country_names = []  # 存储完整的国家名称列表（用于过滤）
         
         # 创建界面基本元素
         self.create_widgets()
@@ -38,7 +40,6 @@ class GdpApp:
         
         url = "https://api.worldbank.org/v2/country?format=json&per_page=300"
         try:
-            response = self.gdp_client.base_url.replace("/v2/", "")  # 这里使用一个技巧来获取基本URL
             response = requests.get(url)
             data = response.json()
             
@@ -46,6 +47,7 @@ class GdpApp:
                 # 按国家名称排序
                 self.countries_data = sorted(data[1], key=lambda x: x['name'])
                 self.country_names = [country['name'] for country in self.countries_data]
+                self.all_country_names = self.country_names.copy()  # 保存完整列表
                 
                 # 更新下拉菜单
                 self.master.after(0, self.update_country_combobox)
@@ -63,6 +65,20 @@ class GdpApp:
             self.country_combobox.current(0)
         self.status_var.set(f"已加载 {len(self.country_names)} 个国家")
         
+    def filter_countries(self, event=None):
+        """根据输入过滤国家列表"""
+        value = self.country_var.get().lower()
+        if value == '':
+            # 如果输入为空，显示所有国家
+            self.country_combobox['values'] = self.all_country_names
+        else:
+            # 否则过滤国家名称
+            filtered_countries = [country for country in self.all_country_names if value in country.lower()]
+            self.country_combobox['values'] = filtered_countries
+            
+        # 保持下拉列表可见
+        self.country_combobox.event_generate('<Down>')
+        
     def create_widgets(self):
         # 创建顶部框架用于输入
         input_frame = ttk.Frame(self.master, padding="10")
@@ -75,6 +91,9 @@ class GdpApp:
         self.country_combobox.grid(row=0, column=1, padx=5, pady=5)
         self.country_combobox['values'] = ["加载中..."]  # 初始状态
         self.country_combobox.current(0)
+        
+        # 绑定键盘事件用于实时过滤
+        self.country_combobox.bind('<KeyRelease>', self.filter_countries)
         
         # 年份范围
         ttk.Label(input_frame, text="起始年份:").grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
@@ -120,6 +139,15 @@ class GdpApp:
         if country_name == "加载中...":
             messagebox.showinfo("提示", "国家列表正在加载中，请稍后再试")
             return
+            
+        # 检查输入的国家是否在列表中
+        if not self.all_country_names or country_name not in self.all_country_names:
+            # 尝试查找最匹配的国家
+            matching_countries = [c for c in self.all_country_names if country_name.lower() in c.lower()]
+            if matching_countries:
+                # 使用第一个匹配项
+                country_name = matching_countries[0]
+                self.country_var.set(country_name)
             
         try:
             start_year = int(self.start_year.get())
@@ -171,8 +199,6 @@ class GdpApp:
         self.status_var.set(f"显示 {country_name} 的GDP数据 ({start_year}-{end_year})")
 
 def run_app():
-    import requests
-    
     root = tk.Tk()
     app = GdpApp(root)
     root.mainloop()
