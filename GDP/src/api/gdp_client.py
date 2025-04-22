@@ -71,3 +71,31 @@ class GdpClient:
                 values.append(float(point['value']))
                 
         return years, values
+
+    def get_cpi_data(self, country_code, start_year, end_year):
+ 
+        # CPI指标代码: FP.CPI.TOTL.ZG (消费者价格指数，年度百分比变化)
+        indicator = "FP.CPI.TOTL.ZG"
+        
+        url = f"{self.base_url}/country/{country_code}/indicator/{indicator}?format=json&date={start_year}:{end_year}&per_page=100"
+        
+        try:
+            response = requests.get(url)
+            data = response.json()
+            
+            if not data or len(data) < 2 or not data[1]:
+                return [], []
+                
+            years = []
+            cpi_values = []
+            
+            for item in reversed(data[1]):
+                if item['value'] is not None:
+                    years.append(int(item['date']))
+                    cpi_values.append(float(item['value']))
+                    
+            return years, cpi_values
+            
+        except Exception as e:
+            print(f"获取CPI数据出错: {str(e)}")
+            return [], []

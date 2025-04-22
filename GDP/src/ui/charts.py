@@ -4,31 +4,36 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class GDPChart:
-    def __init__(self, country_name, years, gdp_values, per_capita_years=None, per_capita_values=None):
+    def __init__(self, country_name, years=None, gdp_values=None, 
+                 per_capita_years=None, per_capita_values=None,
+                 cpi_years=None, cpi_values=None):
         self.country_name = country_name
         self.years = years
         self.gdp_values = gdp_values
         self.per_capita_years = per_capita_years
         self.per_capita_values = per_capita_values
-
+        self.cpi_years = cpi_years
+        self.cpi_values = cpi_values
+    
     def plot_gdp(self):
         plt.figure(figsize=(12, 8))
         
         # GDP总量
-        plt.subplot(2, 1, 1)
-        plt.plot(self.years, self.gdp_values, marker='o', color='blue', linewidth=2)
-        plt.title(f'GDP of {self.country_name} ({min(self.years)}-{max(self.years)})')
-        plt.xlabel('Year')
-        plt.ylabel('GDP (current US$)')
-        plt.grid(True, alpha=0.3)
-        
-        # 格式化y轴为十亿美元
-        plt.ticklabel_format(axis='y', style='plain')
-        ax = plt.gca()
-        ax.get_yaxis().set_major_formatter(
-            plt.FuncFormatter(lambda x, loc: f"${x/1e9:.1f}B"))
-        
-        plt.xticks(rotation=45)
+        if self.years and self.gdp_values:
+            plt.subplot(2, 1, 1)
+            plt.plot(self.years, self.gdp_values, marker='o', color='blue', linewidth=2)
+            plt.title(f'GDP of {self.country_name} ({min(self.years)}-{max(self.years)})')
+            plt.xlabel('Year')
+            plt.ylabel('GDP (current US$)')
+            plt.grid(True, alpha=0.3)
+            
+            # 格式化y轴为十亿美元
+            plt.ticklabel_format(axis='y', style='plain')
+            ax = plt.gca()
+            ax.get_yaxis().set_major_formatter(
+                plt.FuncFormatter(lambda x, loc: f"${x/1e9:.1f}B"))
+            
+            plt.xticks(rotation=45)
         
         # 人均GDP
         if self.per_capita_years and self.per_capita_values:
@@ -44,36 +49,90 @@ class GDPChart:
         plt.show()
 
     def create_figure(self):
-        """创建图表而不显示，用于嵌入到GUI中"""
-        fig = Figure(figsize=(10, 8), dpi=100)
+        """创建包含GDP和人均GDP数据的图表"""
+        fig = plt.Figure(figsize=(10, 8), dpi=100)
         
-        # GDP图表
-        ax1 = fig.add_subplot(2, 1, 1)
-        ax1.plot(self.years, self.gdp_values, marker='o', color='blue', linewidth=2)
-        ax1.set_title(f'GDP of {self.country_name} ({min(self.years)}-{max(self.years)})')
-        ax1.set_xlabel('Year')
-        ax1.set_ylabel('GDP (current US$)')
-        ax1.grid(True, alpha=0.3)
+        # 添加GDP子图
+        if self.years and self.gdp_values:
+            ax1 = fig.add_subplot(211)
+            ax1.plot(self.years, self.gdp_values, 'b-', marker='o')
+            ax1.set_title(f"{self.country_name} GDP趋势")
+            ax1.set_xlabel("年份")
+            ax1.set_ylabel("GDP (美元)")
+            ax1.grid(True)
         
-        # 格式化y轴为十亿美元
-        ax1.ticklabel_format(axis='y', style='plain')
-        ax1.yaxis.set_major_formatter(
-            plt.FuncFormatter(lambda x, loc: f"${x/1e9:.1f}B"))
-        
-        for tick in ax1.get_xticklabels():
-            tick.set_rotation(45)
-        
-        # 人均GDP图表
+        # 添加人均GDP子图
         if self.per_capita_years and self.per_capita_values:
-            ax2 = fig.add_subplot(2, 1, 2)
-            ax2.plot(self.per_capita_years, self.per_capita_values, marker='s', color='green', linewidth=2)
-            ax2.set_title(f'GDP per Capita of {self.country_name} ({min(self.per_capita_years)}-{max(self.per_capita_years)})')
-            ax2.set_xlabel('Year')
-            ax2.set_ylabel('GDP per Capita (current US$)')
-            ax2.grid(True, alpha=0.3)
+            ax2 = fig.add_subplot(212)
+            ax2.plot(self.per_capita_years, self.per_capita_values, 'g-', marker='s')
+            ax2.set_title(f"{self.country_name} 人均GDP趋势")
+            ax2.set_xlabel("年份")
+            ax2.set_ylabel("人均GDP (美元)")
+            ax2.grid(True)
+        
+        fig.tight_layout()
+        return fig
+    
+    def create_cpi_figure(self):
+        """创建CPI数据图表"""
+        fig = plt.Figure(figsize=(10, 6), dpi=100)
+        
+        if self.cpi_years and self.cpi_values:
+            ax = fig.add_subplot(111)
+            ax.plot(self.cpi_years, self.cpi_values, 'r-', marker='^')
+            ax.set_title(f"{self.country_name} 通货膨胀率(CPI)趋势")
+            ax.set_xlabel("年份")
+            ax.set_ylabel("通胀率 (%)")
             
-            for tick in ax2.get_xticklabels():
-                tick.set_rotation(45)
+            # 添加零线以便于区分正负通胀
+            ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+            
+            # 为高通胀区域添加红色背景
+            ax.fill_between(self.cpi_years, self.cpi_values, 0, 
+                           where=[v > 5 for v in self.cpi_values],
+                           color='red', alpha=0.2, label='高通胀')
+            
+            # 为低通胀/通缩区域添加蓝色背景
+            ax.fill_between(self.cpi_years, self.cpi_values, 0,
+                           where=[v < 0 for v in self.cpi_values],
+                           color='blue', alpha=0.2, label='通货紧缩')
+            
+            ax.grid(True)
+            ax.legend()
+        
+        return fig
+    
+    def create_combined_figure(self):
+        """创建包含GDP、人均GDP和CPI的组合图表"""
+        fig = plt.Figure(figsize=(10, 12), dpi=100)
+        
+        # 添加GDP子图
+        if self.years and self.gdp_values:
+            ax1 = fig.add_subplot(311)
+            ax1.plot(self.years, self.gdp_values, 'b-', marker='o')
+            ax1.set_title(f"{self.country_name} GDP趋势")
+            ax1.set_xlabel("年份")
+            ax1.set_ylabel("GDP (美元)")
+            ax1.grid(True)
+        
+        # 添加人均GDP子图
+        if self.per_capita_years and self.per_capita_values:
+            ax2 = fig.add_subplot(312)
+            ax2.plot(self.per_capita_years, self.per_capita_values, 'g-', marker='s')
+            ax2.set_title(f"{self.country_name} 人均GDP趋势")
+            ax2.set_xlabel("年份")
+            ax2.set_ylabel("人均GDP (美元)")
+            ax2.grid(True)
+        
+        # 添加CPI子图
+        if self.cpi_years and self.cpi_values:
+            ax3 = fig.add_subplot(313)
+            ax3.plot(self.cpi_years, self.cpi_values, 'r-', marker='^')
+            ax3.set_title(f"{self.country_name} 通货膨胀率(CPI)趋势")
+            ax3.set_xlabel("年份")
+            ax3.set_ylabel("通胀率 (%)")
+            ax3.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+            ax3.grid(True)
         
         fig.tight_layout()
         return fig
